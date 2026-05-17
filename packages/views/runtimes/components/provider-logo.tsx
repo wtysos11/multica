@@ -165,6 +165,17 @@ function KiroLogo({ className }: { className: string }) {
   );
 }
 
+// CodeBuddy — official brand logo from codebuddy.ai
+function CodeBuddyLogo({ className }: { className: string }) {
+  return (
+    <img
+      src="https://codebuddy-1328495429.cos.accelerate.myqcloud.com/web/ide/logo.svg"
+      alt="CodeBuddy"
+      className={`${className} rounded-sm`}
+    />
+  );
+}
+
 export function ProviderLogo({
   provider,
   className = "h-4 w-4",
@@ -193,6 +204,8 @@ export function ProviderLogo({
       return <KimiLogo className={className} />;
     case "kiro":
       return <KiroLogo className={className} />;
+    case "codebuddy":
+      return <CodeBuddyLogo className={className} />;
     default:
       return <Monitor className={className} />;
   }

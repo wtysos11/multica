@@ -1,4 +1,4 @@
-.PHONY: help makehelp dev server daemon cli multica build test migrate-up migrate-down sqlc seed clean setup start stop check worktree-env setup-main start-main stop-main check-main setup-worktree start-worktree stop-worktree check-worktree db-up db-down db-reset selfhost selfhost-build selfhost-stop
+.PHONY: help makehelp dev server daemon cli multica build test migrate-up migrate-down sqlc seed clean setup start stop check worktree-env setup-main start-main stop-main check-main setup-worktree start-worktree stop-worktree check-worktree db-up db-down db-reset selfhost selfhost-build selfhost-stop new_setup new_start new_stop
 
 MAIN_ENV_FILE ?= .env
 WORKTREE_ENV_FILE ?= .env.worktree
@@ -148,6 +148,55 @@ selfhost-stop: ## Stop the self-hosted Docker Compose stack
 	@echo "==> Stopping Multica services..."
 	docker compose -f docker-compose.selfhost.yml down
 	@echo "✓ All services stopped."
+
+# ---------- Native PostgreSQL (no Docker) ----------
+##@ Native PostgreSQL (no Docker)
+
+LOCAL_ENV_FILE ?= .env.local
+
+new_setup: ## Prepare the native-postgres checkout: install deps, init data/, run migrations
+	@if [ ! -f "$(LOCAL_ENV_FILE)" ]; then \
+		echo "Missing $(LOCAL_ENV_FILE). Copy from .env.local or .env.example and configure DATABASE_URL."; \
+		exit 1; \
+	fi
+	@echo "==> Using env file: $(LOCAL_ENV_FILE)"
+	@if [ ! -d node_modules ]; then \
+		echo "==> Installing dependencies..."; \
+		pnpm install; \
+	else \
+		echo "==> Dependencies already installed (node_modules exists), skipping pnpm install."; \
+	fi
+	@echo "==> Checking native PostgreSQL and initializing data/..."
+	@bash scripts/ensure-native-postgres.sh "$(LOCAL_ENV_FILE)"
+	@echo "==> Running migrations..."
+	@set -a && . "$(LOCAL_ENV_FILE)" && set +a && cd server && go run ./cmd/migrate up
+	@echo ""
+	@echo "✓ Setup complete! Run 'make new_start' to launch."
+
+new_start: ## Start backend and frontend using system PostgreSQL (no Docker); data stored in ./data/
+	@if [ ! -f "$(LOCAL_ENV_FILE)" ]; then \
+		echo "Missing $(LOCAL_ENV_FILE). Run 'make new_setup' first."; \
+		exit 1; \
+	fi
+	@echo "==> Using env file: $(LOCAL_ENV_FILE)"
+	@bash scripts/ensure-native-postgres.sh "$(LOCAL_ENV_FILE)"
+	@echo "==> Running migrations..."
+	@set -a && . "$(LOCAL_ENV_FILE)" && set +a && cd server && go run ./cmd/migrate up
+	@echo "==> Starting backend and frontend..."
+	@set -a && . "$(LOCAL_ENV_FILE)" && set +a && \
+		trap 'kill 0' EXIT; \
+		(cd server && go run ./cmd/server) & \
+		pnpm dev:web & \
+		wait
+
+new_stop: ## Stop backend and frontend processes started by new_start
+	@if [ -f "$(LOCAL_ENV_FILE)" ]; then \
+		set -a && . "$(LOCAL_ENV_FILE)" && set +a; \
+	fi
+	@echo "==> Stopping backend (port $${PORT:-8080}) and frontend (port $${FRONTEND_PORT:-3000})..."
+	@-lsof -ti:$${PORT:-8080} | xargs kill -9 2>/dev/null || true
+	@-lsof -ti:$${FRONTEND_PORT:-3000} | xargs kill -9 2>/dev/null || true
+	@echo "✓ App processes stopped. Native PostgreSQL was not affected."
 
 # ---------- One-click commands ----------
 ##@ One-click

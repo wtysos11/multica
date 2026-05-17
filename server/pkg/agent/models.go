@@ -93,6 +93,8 @@ func ListModels(ctx context.Context, providerType, executablePath string) ([]Mod
 		return cachedDiscovery(providerType, func() ([]Model, error) {
 			return discoverOpenclawAgents(ctx, executablePath)
 		})
+	case "codebuddy":
+		return codebuddyStaticModels(), nil
 	default:
 		return nil, fmt.Errorf("unknown agent type: %q", providerType)
 	}
@@ -923,6 +925,53 @@ func parseOpenclawAgents(output string) []Model {
 		})
 	}
 	return models
+}
+
+// codebuddyStaticModels lists the model IDs accepted by the CodeBuddy Code
+// CLI's --model flag as of mid-2026. The CLI supports models from multiple
+// providers (Anthropic, Google, OpenAI, Zhipu GLM, MiniMax, Moonshot, etc.)
+// routed through the CodeBuddy platform. Update when new models are added.
+// Source: `codebuddy --help | grep -A1 "model <model>"`
+func codebuddyStaticModels() []Model {
+	return []Model{
+		// Anthropic Claude
+		{ID: "claude-sonnet-4.6", Label: "Claude Sonnet 4.6", Provider: "anthropic", Default: true},
+		{ID: "claude-sonnet-4.6-1m", Label: "Claude Sonnet 4.6 (1M)", Provider: "anthropic"},
+		{ID: "claude-4.5", Label: "Claude 4.5", Provider: "anthropic"},
+		{ID: "claude-opus-4.7", Label: "Claude Opus 4.7", Provider: "anthropic"},
+		{ID: "claude-opus-4.7-1m", Label: "Claude Opus 4.7 (1M)", Provider: "anthropic"},
+		{ID: "claude-opus-4.6", Label: "Claude Opus 4.6", Provider: "anthropic"},
+		{ID: "claude-opus-4.6-1m", Label: "Claude Opus 4.6 (1M)", Provider: "anthropic"},
+		{ID: "claude-opus-4.5", Label: "Claude Opus 4.5", Provider: "anthropic"},
+		{ID: "claude-haiku-4.5", Label: "Claude Haiku 4.5", Provider: "anthropic"},
+		// Google Gemini
+		{ID: "gemini-3.1-pro", Label: "Gemini 3.1 Pro", Provider: "google"},
+		{ID: "gemini-3.1-flash-lite", Label: "Gemini 3.1 Flash Lite", Provider: "google"},
+		{ID: "gemini-3.0-flash", Label: "Gemini 3.0 Flash", Provider: "google"},
+		{ID: "gemini-2.5-pro", Label: "Gemini 2.5 Pro", Provider: "google"},
+		// OpenAI GPT
+		{ID: "gpt-5.5", Label: "GPT-5.5", Provider: "openai"},
+		{ID: "gpt-5.4", Label: "GPT-5.4", Provider: "openai"},
+		{ID: "gpt-5.3-codex", Label: "GPT-5.3 Codex", Provider: "openai"},
+		{ID: "gpt-5.1-codex", Label: "GPT-5.1 Codex", Provider: "openai"},
+		{ID: "gpt-5.1-codex-mini", Label: "GPT-5.1 Codex Mini", Provider: "openai"},
+		// Zhipu GLM
+		{ID: "glm-5.1-ioa", Label: "GLM-5.1", Provider: "zhipu"},
+		{ID: "glm-5.0-turbo-ioa", Label: "GLM-5.0 Turbo", Provider: "zhipu"},
+		{ID: "glm-5v-turbo-ioa", Label: "GLM-5V Turbo", Provider: "zhipu"},
+		{ID: "glm-5.0-ioa", Label: "GLM-5.0", Provider: "zhipu"},
+		{ID: "glm-4.7-ioa", Label: "GLM-4.7", Provider: "zhipu"},
+		// MiniMax
+		{ID: "minimax-m2.7-ioa", Label: "MiniMax M2.7", Provider: "minimax"},
+		{ID: "minimax-m2.5-ioa", Label: "MiniMax M2.5", Provider: "minimax"},
+		// Moonshot Kimi
+		{ID: "kimi-k2.6-ioa", Label: "Kimi K2.6", Provider: "moonshot"},
+		{ID: "kimi-k2.5-ioa", Label: "Kimi K2.5", Provider: "moonshot"},
+		// Hunyuan
+		{ID: "hy3-preview-ioa", Label: "Hunyuan 3 Preview", Provider: "tencent"},
+		// DeepSeek
+		{ID: "deepseek-v3-2-volc-ioa", Label: "DeepSeek V3.2", Provider: "deepseek"},
+	}
 }
 
 // isOpenclawIdentifier reports whether s looks like a valid

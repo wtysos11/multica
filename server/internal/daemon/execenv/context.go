@@ -156,6 +156,10 @@ func resolveSkillsDir(workDir, provider string) (string, error) {
 		// Kiro CLI auto-discovers project-level skills from .kiro/skills/
 		// in the workdir.
 		skillsDir = filepath.Join(workDir, ".kiro", "skills")
+	case "codebuddy":
+		// CodeBuddy Code CLI auto-discovers project-level skills from
+		// .codebuddy/skills/ in the workdir.
+		skillsDir = filepath.Join(workDir, ".codebuddy", "skills")
 	default:
 		// Fallback: write to .agent_context/skills/ (referenced by meta config).
 		skillsDir = filepath.Join(workDir, ".agent_context", "skills")
