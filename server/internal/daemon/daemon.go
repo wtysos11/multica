@@ -2566,9 +2566,25 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 	if err != nil {
 		d.logger.Warn("execenv: inject runtime config failed (non-fatal)", "error", err)
 	}
-	// NOTE: No cleanup — workdir is preserved for reuse by future tasks on
-	// the same (agent, issue) pair. The work_dir path is stored in DB on
-	// task completion and passed back via PriorWorkDir on the next claim.
+	// Workdir is preserved for reuse by future tasks on the same (agent,
+	// issue) pair in cloud mode; the work_dir path is stored in DB on task
+	// completion and passed back via PriorWorkDir on the next claim, so
+	// rewriting the marker block in place is the right behavior.
+	//
+	// In local_directory mode the workdir is the user's own repo, reuse is
+	// already disabled above (see localAssignment == nil), and the brief
+	// would otherwise live on inside the user's repository — a subsequent
+	// manual `claude` / `codex` / `gemini` run in that directory would pick
+	// up stale Multica instructions (issue id, trigger comment id, reply
+	// rules) and start acting on the previous task's context. Excise the
+	// marker block on the way out instead.
+	if env.LocalDirectory {
+		defer func() {
+			if cerr := execenv.CleanupRuntimeConfig(env.WorkDir, provider); cerr != nil {
+				d.logger.Warn("execenv: cleanup runtime config failed (non-fatal)", "error", cerr)
+			}
+		}()
+	}
 
 	prompt := BuildPrompt(task, provider)
 
