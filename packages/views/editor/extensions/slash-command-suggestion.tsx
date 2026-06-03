@@ -8,10 +8,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { computePosition, flip, offset, shift } from "@floating-ui/dom";
-import { ReactRenderer } from "@tiptap/react";
 import type { QueryClient } from "@tanstack/react-query";
-import type { SuggestionOptions, SuggestionProps } from "@tiptap/suggestion";
+import type { SuggestionOptions } from "@tiptap/suggestion";
+import { PluginKey } from "@tiptap/pm/state";
 import { useAuthStore } from "@multica/core/auth";
 import { useChatStore } from "@multica/core/chat";
 import { getCurrentWsId } from "@multica/core/platform";
@@ -20,6 +19,7 @@ import { isImeComposing } from "@multica/core/utils";
 import { workspaceKeys } from "@multica/core/workspace/queries";
 import type { Agent, MemberWithUser } from "@multica/core/types";
 import { useT } from "../../i18n";
+import { createSuggestionPopupRender } from "./suggestion-popup";
 
 const MAX_ITEMS = 20;
 
@@ -162,11 +162,11 @@ export function createSlashCommandSuggestion(qc: QueryClient): Omit<
   SuggestionOptions<SlashCommandItem>,
   "editor"
 > {
-  let renderer: ReactRenderer<SlashCommandListRef> | null = null;
-  let popup: HTMLDivElement | null = null;
+  const pluginKey = new PluginKey("slashCommandSuggestion");
 
   return {
     char: "/",
+    pluginKey,
     items: ({ query }) => buildItems(qc, query),
     command: ({ editor, range, props }) => {
       const nodeAfter = editor.view.state.selection.$to.nodeAfter;
@@ -193,70 +193,15 @@ export function createSlashCommandSuggestion(qc: QueryClient): Omit<
 
       window.getSelection()?.collapseToEnd();
     },
-    render: () => {
-      return {
-        onStart: (props: SuggestionProps<SlashCommandItem>) => {
-          renderer = new ReactRenderer(SlashCommandList, {
-            props: {
-              items: props.items,
-              query: props.query,
-              command: props.command,
-            },
-            editor: props.editor,
-          });
-
-          popup = document.createElement("div");
-          popup.style.position = "fixed";
-          popup.style.zIndex = "50";
-          popup.appendChild(renderer.element);
-          document.body.appendChild(popup);
-
-          updatePosition(popup, props.clientRect);
-        },
-        onUpdate: (props: SuggestionProps<SlashCommandItem>) => {
-          renderer?.updateProps({
-            items: props.items,
-            query: props.query,
-            command: props.command,
-          });
-          if (popup) updatePosition(popup, props.clientRect);
-        },
-        onKeyDown: (props: { event: KeyboardEvent }) => {
-          if (props.event.key === "Escape") {
-            cleanup();
-            return true;
-          }
-          return renderer?.ref?.onKeyDown(props) ?? false;
-        },
-        onExit: () => {
-          cleanup();
-        },
-      };
-    },
+    render: createSuggestionPopupRender<SlashCommandItem, SlashCommandItem, SlashCommandListRef, SlashCommandListProps>({
+      pluginKey,
+      component: SlashCommandList,
+      getProps: (props) => ({
+        items: props.items,
+        query: props.query,
+        command: props.command,
+      }),
+      onKeyDown: (ref, props) => ref?.onKeyDown(props) ?? false,
+    }),
   };
-
-  function updatePosition(
-    el: HTMLDivElement,
-    clientRect: (() => DOMRect | null) | null | undefined,
-  ) {
-    if (!clientRect) return;
-    const virtualEl = {
-      getBoundingClientRect: () => clientRect() ?? new DOMRect(),
-    };
-    computePosition(virtualEl, el, {
-      placement: "bottom-start",
-      strategy: "fixed",
-      middleware: [offset(4), flip(), shift({ padding: 8 })],
-    }).then(({ x, y }) => {
-      el.style.left = `${x}px`;
-      el.style.top = `${y}px`;
-    });
-  }
-
-  function cleanup() {
-    renderer?.destroy();
-    renderer = null;
-    popup?.remove();
-    popup = null;
-  }
 }
