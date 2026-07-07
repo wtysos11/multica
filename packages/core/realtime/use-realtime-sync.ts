@@ -38,6 +38,7 @@ import {
   notificationPreferenceKeys,
 } from "../notification-preferences/queries";
 import { workspaceKeys, workspaceListOptions } from "../workspace/queries";
+import { isWorkspaceDeletePending } from "../workspace/pending-delete";
 import {
   showWebNotification,
   type SystemNotificationPayload,
@@ -794,6 +795,12 @@ export function useRealtimeSync(
 
     const unsubWsDeleted = ws.on("workspace:deleted", (p) => {
       const { workspace_id } = p as WorkspaceDeletedPayload;
+      // Self-initiated delete: useDeleteWorkspace owns storage cleanup and
+      // navigation (both run after the DELETE resolves). Reacting here too
+      // would race that flow's navigation with a full-page relocate — the
+      // CancelledError + reload combo this guard exists to prevent. This
+      // handler only serves deletes initiated elsewhere (other user/device).
+      if (isWorkspaceDeletePending(workspace_id)) return;
       // Event payload has UUID; look up slug from cached workspace list
       // since clearWorkspaceStorage keys are namespaced by slug.
       const wsList = qc.getQueryData<{ id: string; slug: string }[]>(workspaceKeys.list()) ?? [];
